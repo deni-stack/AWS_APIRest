@@ -1,0 +1,58 @@
+# ============================================================
+# Archivos de configuracion local y credenciales
+# ============================================================
+
+# Variables de entorno (contienen credenciales de AWS y de la base de datos)
+.env
+.env.local
+.env.*.local
+
+# ============================================================
+# Java / Maven / Spring Boot
+# ============================================================
+target/
+.mvn/wrapper/maven-wrapper.jar
+*.class
+*.war
+*.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# ============================================================
+# Angular / Node
+# ============================================================
+node_modules/
+fronted/dist/
+fronted/.angular/
+fronted/out-tsc/
+fronted/coverage/
+npm-debug.log
+yarn-error.log
+
+# ============================================================
+# IDEs
+# ============================================================
+.idea/
+*.iml
+*.ipr
+*.iws
+.vs/
+.vscode/*
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/tasks.json
+.history/
+*.swp
+.classpath
+.project
+.settings/
+.factorypath
+.sts4-cache
+.springBeans
+
+# ============================================================
+# Sistema operativo
+# ============================================================
+.DS_Store
+Thumbs.db
+desktop.ini

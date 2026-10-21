@@ -1,0 +1,207 @@
+<div class="store-shell">
+  <header class="topbar">
+    <a class="brand" href="#top" aria-label="Nido, inicio">
+      <span class="brand-mark" aria-hidden="true">n</span>
+      <span class="brand-name">nido<span>mercado</span></span>
+    </a>
+    <nav class="main-nav" aria-label="Navegación principal">
+      <button class="nav-link" [class.active]="view() === 'catalog'" (click)="showCatalog()">Tienda</button>
+      <button class="nav-link" [class.active]="view() === 'orders'" (click)="showOrders()">Mis compras</button>
+    </nav>
+    <div class="topbar-actions">
+      <span class="api-status" [class.offline]="!apiOnline()"><span class="status-dot"></span>{{ apiOnline() ? 'Conectado' : 'API sin conexión' }}</span>
+      <button class="cart-jump" type="button" (click)="scrollToCart()" aria-label="Ir al carrito">
+        <span class="cart-glyph" aria-hidden="true">▱</span><span>Carrito</span><span class="cart-count">{{ cartCount() }}</span>
+      </button>
+    </div>
+  </header>
+
+  <main id="top" class="page-content">
+    @if (notice()) {
+      <div class="notice" [class.notice-error]="noticeKind() === 'error'" role="status">
+        <span>{{ notice() }}</span><button type="button" class="notice-close" aria-label="Cerrar aviso" (click)="clearNotice()">×</button>
+      </div>
+    }
+
+    @if (view() === 'catalog') {
+      <section class="intro-row">
+        <div>
+          <p class="eyebrow"><span class="eyebrow-line"></span> Selección de todos los días</p>
+          <h1>Catálogo <span>de productos</span></h1>
+          <p class="intro-copy">Encuentra algo que te sirva. Tu compra, clara de principio a fin.</p>
+        </div>
+        <div class="intro-meta"><span class="meta-number">{{ filteredProducts().length.toString().padStart(2, '0') }}</span><span>productos<br>disponibles</span></div>
+      </section>
+
+      <section class="shop-layout" aria-label="Catálogo y carrito">
+        <div class="catalog-column">
+          <div class="catalog-toolbar">
+            <label class="search-box">
+              <span class="search-icon" aria-hidden="true"></span><span class="visually-hidden">Buscar productos</span>
+              <input type="search" placeholder="Buscar en el catálogo" [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event)">
+              @if (searchTerm()) { <button type="button" class="clear-search" aria-label="Limpiar búsqueda" (click)="searchTerm.set('')">×</button> }
+            </label>
+            <div class="filter-group" role="group" aria-label="Filtrar productos">
+              <button type="button" [class.selected]="!onlyAvailable()" (click)="onlyAvailable.set(false)">Todos</button>
+              <button type="button" [class.selected]="onlyAvailable()" (click)="onlyAvailable.set(true)">Disponibles</button>
+            </div>
+            <label class="sort-control"><span class="visually-hidden">Ordenar productos</span>
+              <select [ngModel]="sortOrder()" (ngModelChange)="sortOrder.set($event)">
+                <option value="featured">Recomendados</option><option value="priceAsc">Precio: menor a mayor</option><option value="priceDesc">Precio: mayor a menor</option>
+              </select>
+            </label>
+            <button type="button" class="add-product-button" (click)="openProductForm()"><span aria-hidden="true">+</span> Nuevo producto</button>
+          </div>
+
+          @if (loading()) {
+            <div class="loading-state" role="status"><span class="loader"></span><span>Cargando el catálogo...</span></div>
+          } @else if (loadError()) {
+            <div class="empty-state connection-error"><span class="empty-symbol" aria-hidden="true">!</span><p class="eyebrow">No pudimos conectar</p><h2>El catálogo no está disponible</h2><p>{{ loadError() }}</p><button class="primary-button" type="button" (click)="loadStore()">Volver a intentar</button></div>
+          } @else if (filteredProducts().length === 0) {
+            <div class="empty-state">
+              <span class="empty-symbol" aria-hidden="true">＋</span>
+              @if (products().length === 0) {
+                <p class="eyebrow">Una tienda empieza aquí</p><h2>Aún no hay productos</h2><p>Agrega el primer producto para abrir el catálogo.</p>
+                <button class="primary-button" type="button" (click)="openProductForm()">Agregar producto</button>
+              } @else {
+                <p class="eyebrow">Sin coincidencias</p><h2>No encontramos ese producto</h2><p>Prueba con otro nombre o limpia los filtros.</p>
+                <button class="text-button" type="button" (click)="resetFilters()">Limpiar búsqueda y filtros</button>
+              }
+            </div>
+          } @else {
+            <div class="product-grid">
+              @for (product of filteredProducts(); track product.id; let index = $index) {
+                <article class="product-card" [class.out-of-stock]="product.stock < 1">
+                  <div [class]="'product-photo tone-' + (index % 4)">
+                    <img [src]="productImage(product)" [alt]="product.nombre" loading="lazy" (error)="onProductImageError($event, product)">
+                    <span class="photo-index">N° {{ (index + 1).toString().padStart(2, '0') }}</span>
+                    @if (product.stock < 1) { <span class="stock-ribbon">Agotado</span> }
+                    @else if (product.stock < 5) { <span class="stock-ribbon low-stock">Últimas unidades</span> }
+                  </div>
+                  <div class="product-info">
+                    <div class="product-title-row"><div><h2>{{ product.nombre }}</h2><p class="product-description">{{ product.descripcion || 'Una buena elección para todos los días.' }}</p></div><span class="stock-label">{{ product.stock }} <small>unid.</small></span></div>
+                    <div class="product-bottom"><span class="product-price">{{ product.precio | currency:'GTQ':'Q':'1.2-2' }}</span><button class="add-button" type="button" [disabled]="product.stock < 1" (click)="addToCart(product)"><span aria-hidden="true">+</span> Agregar</button></div>
+                    <button class="restock-button" type="button" (click)="openStockForm(product)"><span aria-hidden="true">↗</span> Sumar unidades</button>
+                    <label class="restock-button photo-change" [class.disabled]="savingImage()">
+                      <span aria-hidden="true">⇪</span> {{ savingImage() ? 'Subiendo...' : 'Cambiar foto' }}
+                      <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" [disabled]="savingImage()" (change)="changeProductImage(product, $event)">
+                    </label>
+                  </div>
+                </article>
+              }
+            </div>
+          }
+        </div>
+
+        <aside id="cart" class="cart-panel" aria-label="Carrito de compras">
+          <div class="cart-heading"><div><p class="eyebrow">Tu selección</p><h2>El carrito <span>({{ cartCount() }})</span></h2></div>
+            @if (cartCount() > 0) { <button class="clear-cart" type="button" (click)="clearCart()">Vaciar</button> }
+          </div>
+          @if (cartDetails().length === 0) {
+            <div class="cart-empty"><span class="basket-mark" aria-hidden="true">⌑</span><p>Tu carrito está esperando algo bueno.</p><span>Agrega productos para empezar.</span></div>
+          } @else {
+            <div class="cart-lines">
+              @for (line of cartDetails(); track line.product.id) {
+                <div class="cart-line">
+                  <div class="cart-line-photo"><img [src]="productImage(line.product)" [alt]="line.product.nombre" (error)="onProductImageError($event, line.product)"></div>
+                  <div class="cart-line-content"><div class="cart-line-title"><h3>{{ line.product.nombre }}</h3><button class="remove-line" type="button" aria-label="Quitar producto" (click)="removeFromCart(line.product.id)">×</button></div>
+                    <span class="cart-line-price">{{ line.subtotal | currency:'GTQ':'Q':'1.2-2' }}</span>
+                    <div class="quantity-control" [attr.aria-label]="'Cantidad de ' + line.product.nombre">
+                      <button type="button" [disabled]="line.quantity <= 1" aria-label="Disminuir cantidad" (click)="changeQuantity(line.product.id, -1)">−</button><span>{{ line.quantity }}</span>
+                      <button type="button" [disabled]="line.quantity >= line.product.stock" aria-label="Aumentar cantidad" (click)="changeQuantity(line.product.id, 1)">+</button>
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+            <div class="customer-field"><label for="customer">Compra para</label>
+              @if (users().length > 0) {
+                <select id="customer" [ngModel]="selectedUser()" (ngModelChange)="selectUser($event)">@for (user of users(); track user.clave) { <option [value]="user.clave">{{ user.nombre }} · {{ user.clave }}</option> }</select>
+              } @else { <p class="no-users">Todavía no hay usuarios registrados.</p> }
+              <button class="register-link" type="button" (click)="openUserForm()">+ Registrar usuario</button>
+            </div>
+            <div class="cart-total"><span>Total</span><strong>{{ cartTotal() | currency:'GTQ':'Q':'1.2-2' }}</strong></div>
+            <button class="checkout-button" type="button" [disabled]="submitting() || users().length === 0 || cartDetails().length === 0" (click)="checkout()">
+              @if (submitting()) { Procesando compra... } @else { Confirmar compra <span aria-hidden="true">↗</span> }
+            </button>
+            @if (users().length === 0) { <p class="checkout-hint">Registra un usuario para continuar.</p> }
+            <p class="secure-note"><span aria-hidden="true">✓</span> El inventario se actualiza al confirmar.</p>
+          }
+        </aside>
+      </section>
+    } @else {
+      <section class="orders-view">
+        <div class="orders-heading"><div><p class="eyebrow"><span class="eyebrow-line"></span> Tu historial</p><h1>Mis compras</h1><p class="intro-copy">Facturas y detalles de tus pedidos.</p></div>
+          @if (users().length > 0) { <label class="orders-customer"><span>Usuario</span><select [ngModel]="selectedUser()" (ngModelChange)="selectUser($event)">@for (user of users(); track user.clave) { <option [value]="user.clave">{{ user.nombre }} · {{ user.clave }}</option> }</select></label> }
+        </div>
+        @if (ordersLoading()) { <div class="loading-state"><span class="loader"></span><span>Cargando compras...</span></div> }
+        @else if (loadError()) { <div class="empty-state connection-error"><p>{{ loadError() }}</p><button class="primary-button" type="button" (click)="loadStore()">Volver a intentar</button></div> }
+        @else if (ordersError()) { <div class="empty-state connection-error"><p>{{ ordersError() }}</p><button class="primary-button" type="button" (click)="loadOrders()">Volver a intentar</button></div> }
+        @else if (users().length === 0) { <div class="empty-state"><span class="empty-symbol" aria-hidden="true">＋</span><h2>Registra un usuario</h2><p>Necesitas un usuario para consultar sus facturas.</p><button class="primary-button" type="button" (click)="openUserForm()">Registrar usuario</button></div> }
+        @else if (orders().length === 0) { <div class="empty-state"><span class="empty-symbol" aria-hidden="true">↗</span><h2>Aún no hay compras</h2><p>Cuando confirmes tu primera compra, aparecerá aquí.</p><button class="text-button" type="button" (click)="showCatalog()">Volver al catálogo</button></div> }
+        @else {
+          <div class="orders-list">@for (order of orders(); track order.id) {
+            <article class="order-card"><div class="order-topline"><div><span class="order-label">Factura</span><h2>#{{ order.id }}</h2></div><span class="order-total">{{ order.total | currency:'GTQ':'Q':'1.2-2' }}</span></div>
+              <p class="order-date">{{ order.fecha | date:'dd/MM/yyyy, HH:mm' }} · {{ order.productos.length }} {{ order.productos.length === 1 ? 'producto' : 'productos' }}</p>
+              @if (order.usuario) {
+                <div class="order-customer">
+                  <span class="order-label">Cliente</span>
+                  <p class="order-customer-name">{{ order.usuario.nombre || 'Sin nombre' }}</p>
+                  <dl class="order-customer-data">
+                    <div><dt>Clave</dt><dd>{{ order.usuario.clave }}</dd></div>
+                    @if (order.usuario.codigo) { <div><dt>Codigo</dt><dd>{{ order.usuario.codigo }}</dd></div> }
+                  </dl>
+                </div>
+              }
+              <div class="order-items">@for (item of order.productos; track item.productoId) { <div class="order-item"><span>{{ item.cantidad }} × {{ item.nombreProducto }}</span><span>{{ item.subtotal | currency:'GTQ':'Q':'1.2-2' }}</span></div> }</div>
+              <div class="order-totals">
+                <div class="order-summary"><span>Subtotal</span><span>{{ order.subtotal | currency:'GTQ':'Q':'1.2-2' }}</span></div>
+                <div class="order-summary"><span>IVA ({{ order.ivaPorcentaje | number:'1.0-0' }}%)</span><span>{{ order.iva | currency:'GTQ':'Q':'1.2-2' }}</span></div>
+                <div class="order-summary order-summary-total"><span>Total</span><span>{{ order.total | currency:'GTQ':'Q':'1.2-2' }}</span></div>
+              </div>
+            </article>
+          }</div>
+        }
+      </section>
+    }
+  </main>
+
+  <footer class="site-footer"><span>nido mercado <span class="footer-dot">/</span> compras con intención</span><span class="footer-status"><span class="status-dot"></span>{{ apiOnline() ? 'Inventario conectado al API' : 'Esperando conexión con el API' }}</span></footer>
+</div>
+
+@if (showProductForm()) {
+  <div class="modal-backdrop" (click)="closeProductForm()"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="product-dialog-title" (click)="$event.stopPropagation()">
+    <button class="modal-close" type="button" aria-label="Cerrar formulario" (click)="closeProductForm()">×</button><p class="eyebrow">Ampliar catálogo</p><h2 id="product-dialog-title">Nuevo producto</h2><p class="modal-copy">Agrega los datos que aparecerán en la tienda. La imagen se guarda en AWS S3.</p>
+    <form (ngSubmit)="saveProduct()"><label class="form-field">Nombre<input name="productName" [(ngModel)]="newProduct.nombre" maxlength="120" required></label>
+      <label class="form-field">Descripción <span class="optional">Opcional</span><textarea name="productDescription" [(ngModel)]="newProduct.descripcion" maxlength="500" rows="3"></textarea></label>
+      <div class="form-row"><label class="form-field">Precio (Q)<input name="productPrice" [(ngModel)]="newProduct.precio" type="number" min="0.01" step="0.01" required></label><label class="form-field">Unidades<input name="productStock" [(ngModel)]="newProduct.stock" type="number" min="0" step="1" required></label></div>
+      <label class="form-field image-field">Imagen del producto <span class="required-tag">Obligatoria</span>
+        <input type="file" name="productImage" accept="image/jpeg,image/png,image/webp,image/gif" (change)="selectProductImage($event)">
+      </label>
+      @if (productImagePreview(); as preview) { <div class="image-preview"><img [src]="preview" alt="Vista previa de la imagen del producto"></div> }
+      @if (productImageError()) { <p class="form-error" role="alert">{{ productImageError() }}</p> }
+      @if (productFormError()) { <p class="form-error" role="alert">{{ productFormError() }}</p> }
+      <button class="checkout-button modal-submit" type="submit" [disabled]="savingProduct() || !newProduct.imagen">{{ savingProduct() ? 'Guardando...' : 'Guardar producto' }} <span aria-hidden="true">↗</span></button>
+    </form>
+  </section></div>
+}
+
+@if (restockProduct(); as product) {
+  <div class="modal-backdrop" (click)="closeStockForm()"><section class="modal stock-modal" role="dialog" aria-modal="true" aria-labelledby="stock-dialog-title" (click)="$event.stopPropagation()">
+    <button class="modal-close" type="button" aria-label="Cerrar formulario" [disabled]="savingStock()" (click)="closeStockForm()">×</button><p class="eyebrow">Actualizar inventario</p><h2 id="stock-dialog-title">Sumar unidades</h2><p class="modal-copy">{{ product.nombre }} tiene {{ product.stock }} unidades disponibles.</p>
+    <form (ngSubmit)="addStock()"><label class="form-field">Unidades que agregarás<input name="restockUnits" [(ngModel)]="restockUnits" type="number" min="1" step="1" required></label>
+      @if (stockFormError()) { <p class="form-error" role="alert">{{ stockFormError() }}</p> }
+      <button class="checkout-button modal-submit" type="submit" [disabled]="savingStock()">{{ savingStock() ? 'Actualizando...' : 'Actualizar stock' }} <span aria-hidden="true">↗</span></button>
+    </form>
+  </section></div>
+}
+
+@if (showUserForm()) {
+  <div class="modal-backdrop" (click)="closeUserForm()"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="user-dialog-title" (click)="$event.stopPropagation()">
+    <button class="modal-close" type="button" aria-label="Cerrar formulario" (click)="closeUserForm()">×</button><p class="eyebrow">Nuevo perfil</p><h2 id="user-dialog-title">Registrar usuario</h2><p class="modal-copy">Asocia tus compras a una cuenta existente en el API.</p>
+    <form (ngSubmit)="saveUser()"><label class="form-field">Clave<input name="userKey" [(ngModel)]="newUser.clave" maxlength="11" required></label><label class="form-field">Nombre<input name="userName" [(ngModel)]="newUser.nombre" maxlength="11" required></label><label class="form-field">Código<input name="userCode" [(ngModel)]="newUser.codigo" maxlength="11" required></label>
+      @if (userFormError()) { <p class="form-error" role="alert">{{ userFormError() }}</p> }
+      <button class="checkout-button modal-submit" type="submit" [disabled]="savingUser()">{{ savingUser() ? 'Guardando...' : 'Crear usuario' }} <span aria-hidden="true">↗</span></button>
+    </form>
+  </section></div>
+}
