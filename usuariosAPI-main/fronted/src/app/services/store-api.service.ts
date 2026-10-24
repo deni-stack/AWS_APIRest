@@ -1,19 +1,24 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
+
+import { environment } from '../../environments/environment';
 import { CrearFacturaInput, Factura, Producto, ProductoInput, Usuario } from '../models/store.models';
 
 @Injectable({ providedIn: 'root' })
 export class StoreApiService {
   private readonly http = inject(HttpClient);
+  
+  // URL base de la API (configurable por entorno: local o produccion).
+  private readonly baseUrl = environment.apiUrl;
 
   getProducts(): Observable<Producto[]> {
-    return this.http.get<Producto[]>('/productos');
+    return this.http.get<Producto[]>(`${this.baseUrl}/productos`);
   }
 
   /** Registra un producto con su imagen (multipart: 'producto' + 'imagen'). */
   createProduct(product: ProductoInput, imagen: File): Observable<Producto> {
-    return this.http.post<Producto>('/productos', this.construirFormulario(product, imagen));
+    return this.http.post<Producto>(`${this.baseUrl}/productos`, this.construirFormulario(product, imagen));
   }
 
   /** Reemplaza la imagen de un producto existente. */
@@ -24,27 +29,27 @@ export class StoreApiService {
       precio: product.precio,
       stock: product.stock,
     };
-    return this.http.put<Producto>(`/productos/${product.id}`, this.construirFormulario(datos, imagen));
+    return this.http.put<Producto>(`${this.baseUrl}/productos/${product.id}`, this.construirFormulario(datos, imagen));
   }
 
   addProductStock(productId: number, unidades: number): Observable<Producto> {
-    return this.http.put<Producto>(`/productos/${productId}/stock`, { unidades });
+    return this.http.put<Producto>(`${this.baseUrl}/productos/${productId}/stock`, { unidades });
   }
 
   getUsers(): Observable<Usuario[]> {
-    return this.http.get<Usuario[]>('/usuarios');
+    return this.http.get<Usuario[]>(`${this.baseUrl}/usuarios`);
   }
 
   createUser(user: Usuario): Observable<Usuario> {
-    return this.http.post<Usuario>('/usuarios', user);
+    return this.http.post<Usuario>(`${this.baseUrl}/usuarios`, user);
   }
 
   getOrders(userKey: string): Observable<Factura[]> {
-    return this.http.get<Factura[]>('/facturas', { params: { usuarioClave: userKey } });
+    return this.http.get<Factura[]>(`${this.baseUrl}/facturas`, { params: { usuarioClave: userKey } });
   }
 
   createOrder(order: CrearFacturaInput): Observable<Factura> {
-    return this.http.post<Factura>('/facturas', order);
+    return this.http.post<Factura>(`${this.baseUrl}/facturas`, order);
   }
 
   /**
